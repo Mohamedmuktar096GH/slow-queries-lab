@@ -174,6 +174,36 @@ SELECT count(*) FROM students;
 * **Recovery Mechanism:** Upon startup, the engine entered recovery mode, reading the `restore_command` parameters and sequentially replaying WAL log segments from storage.
 * **Target Enforcement:** The engine successfully ceased log replay operations precisely at the `recovery_target_time` boundary, bypassing the destructive `DELETE` transaction completely.
 * **Validation Outcome:** Executing `SELECT count(*)` confirmed a 100% record restoration efficiency rate, meeting corporate RTO and RPO objectives safely.
+---
+
+## Step 4: Set Up a Streaming Standby
+A high-availability architecture was established by creating a specialized replication security role, authorizing loopback transit parameters, and deploying an active streaming replica server.
+
+### Security Role Provisioning (Executed on Primary Cluster):
+```sql
+CREATE ROLE replicator
+WITH REPLICATION LOGIN PASSWORD 'reppass';
+```
+
+### Access Authentication Configuration (`pg_hba.conf`):
+```ini
+# Authorize loopback transit network addresses for streaming replication
+host replication replicator 127.0.0.1/32 md5
+```
+
+### Replication Infrastructure Deployment:
+```bash
+# Force the system to reload configuration files
+sudo systemctl reload postgresql
+
+# Build and provision the standby instance directory using streaming baseline replication
+pg_basebackup -h 127.0.0.1 -U replicator -D ~/standby -R -P
+```
+
+### Verification & Observations:
+* **Streaming Automation:** The utilization of the `-R` parameter tells the setup to automatically write out a valid `standby.signal` trigger file and inject valid `primary_conninfo` parameters into the engine configurations.
+* **High Availability Ready:** Once initialized, the standby instance continuously opens low-latency data channel requests to the primary engine, reading real-time Write-Ahead Log (WAL) streams to guarantee low failover synchronization delays.
+
 
 
 
