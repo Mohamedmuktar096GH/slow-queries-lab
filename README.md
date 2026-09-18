@@ -203,6 +203,31 @@ pg_basebackup -h 127.0.0.1 -U replicator -D ~/standby -R -P
 ### Verification & Observations:
 * **Streaming Automation:** The utilization of the `-R` parameter tells the setup to automatically write out a valid `standby.signal` trigger file and inject valid `primary_conninfo` parameters into the engine configurations.
 * **High Availability Ready:** Once initialized, the standby instance continuously opens low-latency data channel requests to the primary engine, reading real-time Write-Ahead Log (WAL) streams to guarantee low failover synchronization delays.
+---
+
+## Step 5: Watch Replication Health
+System catalog monitoring was performed from the primary database cluster node to verify streaming connectivity, runtime processing state, and transaction replication lag metrics.
+
+### Diagnostic Monitoring Query:
+```sql
+SELECT application_name, state,
+       pg_wal_lsn_diff(sent_lsn, replay_lsn) AS lag_bytes
+FROM pg_stat_replication;
+```
+
+### Verification & Observations:
+* **Connection State:** The `state` field outputs `streaming`, confirming that the standby database replica is actively connected and processing records dynamically in the background.
+* **Lag Analytics:** The utilization of `pg_wal_lsn_diff` returns `0` or an incredibly low value for `lag_bytes`, proving zero data loss capabilities and real-time high-availability consistency.
+
+---
+
+## Lab Wrap‑Up
+Through this comprehensive lab, the target infrastructure was fully fortified against data loss vectors:
+1. Created a restorable logical snapshot using `pg_dump` to satisfy baseline disaster recovery protocols.
+2. Activated non-destructive transaction logging through `WAL archiving` parameters inside system configurations.
+3. Successfully executed a microsecond-accurate **Point-in-Time Recovery (PITR)** sequence to revert a simulated database deletion event.
+4. Installed a decoupled live **Streaming Standby Replica** architecture to ensure low-latency failover resilience.
+
 
 
 
