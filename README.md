@@ -100,4 +100,33 @@ createdb bootcamp_check && pg_restore -d bootcamp_check ~/backups/bootcamp.dump
 ### Verification & Observations:
 * **Backup Integrity:** The execution of `pg_restore --list` successfully extracted the table of contents and structural dictionary from the archive file without errors, confirming the dump file is completely uncorrupted.
 * **Restoration Validation:** The compilation of the `bootcamp_check` database confirmed that the custom-format logical dump (`bootcamp.dump`) can be cleanly restored onto an active server instance to meet RPO targets during system maintenance.
+---
+
+## Step 2: Enable WAL Archiving
+The PostgreSQL engine configuration was modified to enable continuous logging via Write-Ahead Log (WAL) archiving, followed by a binary base backup initialization.
+
+### Configuration Settings (`postgresql.conf`):
+```ini
+wal_level = replica
+archive_mode = on
+archive_command = 'cp %p /home/$USER/backups/wal/%f'
+```
+
+### Shell Commands Executed:
+```bash
+# 1. Provision a dedicated directory for WAL segments
+mkdir -p ~/backups/wal
+
+# 2. Restart the database engine to apply system parameters
+sudo systemctl restart postgresql
+
+# 3. Take a tar-formatted, compressed binary base backup with progress tracking
+pg_basebackup -D ~/backups/base -Ft -z -Xs -P
+```
+
+### Verification & Observations:
+* **Infrastructure Readiness:** Changing the `wal_level` to `replica` tells the engine to log sufficient information to support WAL archiving and streaming replication standbys.
+* **Archiving Mechanics:** The custom shell command template `cp %p ...` copies full data segments dynamically, preventing transaction log wrap-around errors.
+* **Base Backup Architecture:** Running `pg_basebackup` with `-Ft` generates a clean binary filesystem snapshot (`base.tar.gz`) stored in the directory matrix alongside a copy of the transaction records (`-Xs`).
+
 
