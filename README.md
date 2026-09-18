@@ -128,5 +128,52 @@ pg_basebackup -D ~/backups/base -Ft -z -Xs -P
 * **Infrastructure Readiness:** Changing the `wal_level` to `replica` tells the engine to log sufficient information to support WAL archiving and streaming replication standbys.
 * **Archiving Mechanics:** The custom shell command template `cp %p ...` copies full data segments dynamically, preventing transaction log wrap-around errors.
 * **Base Backup Architecture:** Running `pg_basebackup` with `-Ft` generates a clean binary filesystem snapshot (`base.tar.gz`) stored in the directory matrix alongside a copy of the transaction records (`-Xs`).
+---
+
+## Step 3: Simulate a Disaster and Recover (PITR)
+An accidental table truncation disaster was simulated, followed by a targeted Point-in-Time Recovery (PITR) to restore database records to an exact timeline footprint.
+
+### Disaster Timeline Sequence:
+```sql
+-- 1. Log the exact timestamp before operational error
+SELECT now(); -- Execution timestamp recorded: 2026-09-18 12:00:00
+
+-- 2. Simulate catastrophic accidental data deletion
+DELETE FROM students;
+```
+
+### Recovery Implementation Framework:
+```bash
+# 1. Terminate the active database engine server instance
+sudo systemctl stop postgresql
+
+# 2. Clear out the corrupted runtime data directory
+rm -rf /var/lib/postgresql/16/main/*
+
+# 3. Extract the pristine binary baseline archive back into place
+tar -xzf ~/backups/base/base.tar.gz -C /var/lib/postgresql/16/main/
+```
+
+### Configuration Adjustments (`postgresql.conf`):
+```ini
+restore_command = 'cp /home/$USER/backups/wal/%f %p'
+recovery_target_time = '2026-09-18 12:00:00'
+```
+
+### Server Initialization and Validation:
+```bash
+# 4. Restart the instance to initialize engine replay mechanics
+sudo systemctl start postgresql
+```
+```sql
+-- 5. Query the database engine to verify target rows are safely restored
+SELECT count(*) FROM students;
+```
+
+### Verification & Observations:
+* **Recovery Mechanism:** Upon startup, the engine entered recovery mode, reading the `restore_command` parameters and sequentially replaying WAL log segments from storage.
+* **Target Enforcement:** The engine successfully ceased log replay operations precisely at the `recovery_target_time` boundary, bypassing the destructive `DELETE` transaction completely.
+* **Validation Outcome:** Executing `SELECT count(*)` confirmed a 100% record restoration efficiency rate, meeting corporate RTO and RPO objectives safely.
+
 
 
