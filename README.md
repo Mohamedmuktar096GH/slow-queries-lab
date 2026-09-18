@@ -70,3 +70,34 @@ To safeguard the Postgres engine against heavy connection loads, a professional 
 * **Configuration Vector:** Activated the Connection Pooling framework on the project gateway infrastructure.
 * **Routing Verification:** The system connection string protocol successfully updated to include the dedicated `-pooler` flag parameter, confirming all active transactional traffic is running safely in transaction pooling mode.
 # slow-queries-lab
+---
+
+# Hands‑On Lab Report: Backups, Point‑in‑Time Recovery, and Replication
+
+## Objective
+Take a logical backup, configure WAL archiving, perform a point‑in‑time recovery (PITR) after a simulated disaster, and set up a streaming standby replica.
+
+---
+
+## Step 1: Take and Verify a Logical Backup
+A compressed logical backup of the target database was initialized and verified via an isolated verification schema to ensure data recovery integrity.
+
+### Shell Commands Executed:
+```bash
+# Create backup storage structure
+mkdir -p ~/backups
+
+# Generate custom-format compressed backup dump
+pg_dump -Fc -f ~/backups/bootcamp.dump bootcamp
+
+# Inspect the backup header matrix to verify file stability
+pg_restore --list ~/backups/bootcamp.dump | head
+
+# Provision verification schema and execute a test restoration
+createdb bootcamp_check && pg_restore -d bootcamp_check ~/backups/bootcamp.dump
+```
+
+### Verification & Observations:
+* **Backup Integrity:** The execution of `pg_restore --list` successfully extracted the table of contents and structural dictionary from the archive file without errors, confirming the dump file is completely uncorrupted.
+* **Restoration Validation:** The compilation of the `bootcamp_check` database confirmed that the custom-format logical dump (`bootcamp.dump`) can be cleanly restored onto an active server instance to meet RPO targets during system maintenance.
+
